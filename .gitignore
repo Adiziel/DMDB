@@ -1,0 +1,8 @@
+dist/
+.extension-id
+# defensive: personal / local-only material must never be added here
+research/
+tests/
+.audit-patterns
+*.log
+*.jsonl

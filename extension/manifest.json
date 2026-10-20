@@ -1,0 +1,53 @@
+{
+  "manifest_version": 3,
+  "name": "DMDB",
+  "version": "0.3.0",
+  "description": "A searchable database of your Instagram web DMs: backs them up locally, keeps them even if Instagram drops them, and shows exact timestamps. Not affiliated with Instagram or Meta.",
+  "permissions": [
+    "unlimitedStorage",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://www.instagram.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.instagram.com/*"
+      ],
+      "js": [
+        "inject.js"
+      ],
+      "world": "MAIN",
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://www.instagram.com/*"
+      ],
+      "js": [
+        "parse.js",
+        "bridge.js",
+        "ui.js"
+      ],
+      "run_at": "document_start"
+    }
+  ],
+  "action": {
+    "default_title": "Open DMDB",
+    "default_icon": {
+      "16": "icons/dmdb-16.png",
+      "32": "icons/dmdb-32.png"
+    }
+  },
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAlrahTGBWJhZ5B3PiHQM6HlDPxB4n8SPHQRbzoDlsQHkYoOmDqMailkNuTT98xBCsK//FDH6rsmFMBi20ahhVnbdBFGcVB8JQ2jZjs4wQGXBVmcOckKhjdDHy5qyN0Cl+VzqiX0oQ647REHB4GDvUb5rWjw9BJsCvk7XL4K+DnzAk0lc5RPcRK3IpaaNObcjwf+BYo7G1XJfrcIXR0lAc/5U/H7L4U7Lk+qyrbWkIQ9xwhwFZSWFqcyYht+Ue0sB3o39k0h2ZnU3Ds6SFucePzhsSGwgia0qvgHR+GAAOa5WKExQbNE0vPKPYLYhgqYY3IYdR+ropn3ij5M1b+eHeVwIDAQAB",
+  "icons": {
+    "16": "icons/dmdb-16.png",
+    "32": "icons/dmdb-32.png",
+    "48": "icons/dmdb-48.png",
+    "128": "icons/dmdb-128.png"
+  }
+}

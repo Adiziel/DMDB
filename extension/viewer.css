@@ -1,0 +1,32 @@
+:root { color-scheme: light dark; --line: #8883; --me: #3b6ef5; --hit: #ffd54acc; }
+* { box-sizing: border-box; }
+body { margin: 0; font: 14px system-ui, sans-serif; display: grid; grid-template-columns: 270px 1fr; height: 100vh; }
+aside { border-right: 1px solid var(--line); overflow: auto; padding: 12px; }
+aside h2 { font-size: 12px; margin: 0 0 8px; opacity: .6; letter-spacing: .06em; text-transform: uppercase; }
+.chat { padding: 8px 10px; border-radius: 6px; cursor: pointer; }
+.chat:hover { background: #8881; }
+.chat.sel { background: #3b6ef522; }
+.chat small { display: block; opacity: .6; }
+main { display: flex; flex-direction: column; min-width: 0; }
+.bar { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--line); align-items: center; }
+.bar input[type=search] { flex: 1; min-width: 220px; }
+input, select, button { padding: 7px 9px; border-radius: 6px; border: 1px solid var(--line); font: inherit; background: transparent; color: inherit; }
+button { cursor: pointer; }
+button.danger { color: #e0245e; }
+#info { padding: 6px 12px; opacity: .65; font-size: 12px; }
+#list { flex: 1; overflow: auto; padding: 12px; }
+.hit { padding: 8px 10px; border-bottom: 1px solid var(--line); cursor: pointer; white-space: pre-wrap; overflow-wrap: anywhere; }
+.hit:hover { background: #8881; }
+.meta { font-size: 11px; opacity: .6; margin-bottom: 2px; font-variant-numeric: tabular-nums; }
+.tag { color: #e0245e; }
+mark { background: var(--hit); color: inherit; border-radius: 2px; }
+.row { display: flex; flex-direction: column; margin: 3px 0; }
+.row.me { align-items: flex-end; }
+.b { max-width: 70%; padding: 7px 11px; border-radius: 14px; white-space: pre-wrap; overflow-wrap: anywhere; background: #8882; }
+.row.me .b { background: var(--me); color: #fff; }
+.row.focus .b { outline: 3px solid #ff9100; }
+.row small { font-size: 10px; opacity: .55; margin: 1px 6px; font-variant-numeric: tabular-nums; }
+.quote { font-size: 12px; opacity: .7; border-left: 3px solid #8886; padding-left: 6px; margin-bottom: 4px; }
+.day { text-align: center; font-size: 11px; opacity: .55; margin: 14px 0 4px; }
+.more { text-align: center; padding: 8px; }
+.empty { opacity: .6; padding: 30px; text-align: center; }

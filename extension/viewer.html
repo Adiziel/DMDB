@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>DMDB</title>
+<link rel="icon" href="icons/dmdb-32.png">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="viewer.css">
+</head><body>
+<aside>
+  <h2>Chats</h2>
+  <input type="search" id="cf" placeholder="Find by nickname, name or @username…" style="width:100%;margin-bottom:8px">
+  <div id="chats"></div>
+</aside>
+<main>
+  <div class="bar">
+    <input type="search" id="q" placeholder="Search messages (all words must match)…" autofocus>
+    <select id="who"><option value="">Anyone</option></select>
+    <select id="kind"><option value="">All messages</option><option value="text">Text only</option><option value="unsent">Unsent / edited</option><option value="shares">Shared posts &amp; links</option></select>
+    <input type="date" id="from" title="From"><input type="date" id="to" title="To">
+  </div>
+  <div class="bar">
+    <button id="view">View latest</button>
+    <button id="rename">Rename</button>
+    <button id="expjson">Export JSON</button>
+    <button id="expcsv">Export CSV</button>
+    <button id="exptxt">Export text</button>
+    <button id="del" class="danger">Delete saved copy…</button>
+  </div>
+  <div id="info"></div>
+  <div id="list"></div>
+</main>
+<script src="db.js"></script>
+<script src="viewer.js"></script>
+</body></html>
