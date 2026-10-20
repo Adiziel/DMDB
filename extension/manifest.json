@@ -29,6 +29,7 @@
         "https://www.instagram.com/*"
       ],
       "js": [
+        "compat.js",
         "parse.js",
         "bridge.js",
         "ui.js"

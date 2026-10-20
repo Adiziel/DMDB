@@ -8,11 +8,28 @@ highlights search matches in the page, and has a full search/export viewer.
 
 Nothing leaves your browser. Data lives in the extension's IndexedDB.
 
-## Install (unpacked)
+## Install in Chrome, Brave or Edge (unpacked)
 
 1. Open `chrome://extensions` (or `brave://extensions`), enable **Developer mode**.
 2. **Load unpacked** → choose this repo's `extension/` folder.
 3. Open <https://www.instagram.com/direct/inbox/> (reload if it was already open).
+
+## Install in Firefox
+
+Needs **Firefox 140 or newer** (the extension uses content scripts in the page's own world, 128+, and the CSS
+Custom Highlight API, 140+). Build it with `./package.sh firefox`, which writes `dist/dmdb-firefox-<version>.zip`.
+
+1. Open `about:debugging#/runtime/this-firefox`.
+2. **Load Temporary Add-on...** and pick the zip (or the `manifest.json` inside the unzipped zip).
+3. Open <https://www.instagram.com/direct/inbox/>.
+
+Temporary add-ons disappear when Firefox restarts. Firefox release builds only keep **signed** add-ons, so for a
+permanent install the zip has to be signed by Mozilla (free for self-distribution: addons.mozilla.org Developer
+Hub, "On your own"). If the panel doesn't appear, open `about:addons` > DMDB > Permissions and allow access to
+`www.instagram.com`.
+
+The Firefox build is generated from the same source as the Chromium one: no `key`, `background.scripts` instead of a
+service worker, and a `browser_specific_settings.gecko` block declaring that no data is collected.
 
 ## Use
 
@@ -74,8 +91,8 @@ remote code. Host access is limited to `https://www.instagram.com/*`.
 ## Packaging
 
 ```bash
-./package.sh        # audits extension/ for personal data, then builds dist/dmdb-<version>.zip
+./package.sh [chrome|firefox|all]   # audits extension/ for personal data, then builds dist/dmdb-<browser>-<version>.zip
 ```
 
-The folder to load in the browser is `extension/`. The extension has a fixed id (via the `key` field in
+The folder to load in Chromium browsers is `extension/`. The extension has a fixed id (via the `key` field in
 `manifest.json`), so moving or re-cloning the folder does not orphan the saved data.

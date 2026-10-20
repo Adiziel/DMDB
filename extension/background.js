@@ -1,18 +1,20 @@
-importScripts('parse.js', 'db.js');
+// Chromium runs this as a service worker and pulls the helpers in here; Firefox loads the same
+// files from manifest background.scripts (importScripts does not exist there).
+if (typeof importScripts === 'function') importScripts('compat.js', 'parse.js', 'db.js');
 
-chrome.action.onClicked.addListener(() => chrome.tabs.create({ url: chrome.runtime.getURL('viewer.html') }));
+api.action.onClicked.addListener(() => api.tabs.create({ url: api.runtime.getURL('viewer.html') }));
 
 // Last ingest result / error are kept for diagnostics (read them from the viewer page console:
-// chrome.storage.local.get(['lastIngest','lastError'])).
-const note = (key, val) => chrome.storage.local.set({ [key]: { ...val, at: Date.now() } }).catch(() => {});
+// api.storage.local.get(['lastIngest','lastError'])).
+const note = (key, val) => api.storage.local.set({ [key]: { ...val, at: Date.now() } }).catch(() => {});
 
 // Rolling log of the last pages captured: how each was requested and what it claimed.
-// Contains no message text. Read via chrome.storage.local.get('recent').
+// Contains no message text. Read via api.storage.local.get('recent').
 async function logRecent(entry) {
   try {
-    const { recent = [] } = await chrome.storage.local.get('recent');
+    const { recent = [] } = await api.storage.local.get('recent');
     recent.push({ ...entry, at: Date.now() });
-    await chrome.storage.local.set({ recent: recent.slice(-40) });
+    await api.storage.local.set({ recent: recent.slice(-40) });
   } catch (e) { /* diagnostics only */ }
 }
 const varFlags = v => !v ? null : Object.fromEntries(
@@ -29,9 +31,9 @@ function skeleton(o, depth = 0) {
 async function noteUnparsed(text, vars) {
   try {
     const line = String(text).split('\n').find(l => l.trim()[0] === '{');
-    const { unparsed = [] } = await chrome.storage.local.get('unparsed');
+    const { unparsed = [] } = await api.storage.local.get('unparsed');
     unparsed.push({ at: Date.now(), flags: varFlags(vars), shape: skeleton(JSON.parse(line)) });
-    await chrome.storage.local.set({ unparsed: unparsed.slice(-4) });
+    await api.storage.local.set({ unparsed: unparsed.slice(-4) });
   } catch (e) { /* diagnostics only */ }
 }
 
@@ -45,7 +47,7 @@ async function ingest(text, vars, tabId) {
       const r = await ingestPage(page, dir);
       logRecent({ dir, flags: varFlags(vars), n: r.pageSize, added: r.added, hasNext: !r.reachedStart, chat: r.chatId.slice(-4) });
       note('lastIngest', { chat: r.chatId.slice(-4), n: r.pageSize, added: r.added, reachedStart: r.reachedStart, dir });
-      if (tabId != null) chrome.tabs.sendMessage(tabId, { type: 'ingested', ...r }).catch(() => {});
+      if (tabId != null) api.tabs.sendMessage(tabId, { type: 'ingested', ...r }).catch(() => {});
     } catch (e) {
       note('lastError', { where: 'ingest', msg: String((e && e.stack) || e).slice(0, 600) });
     }
@@ -54,12 +56,12 @@ async function ingest(text, vars, tabId) {
 
 // Rate limit for "Fetch from Instagram" (see quotaDecision). Persisted so reloads can't reset it.
 async function quota(take) {
-  const { quota: stamps = [], cooldownUntil = 0 } = await chrome.storage.local.get(['quota', 'cooldownUntil']);
+  const { quota: stamps = [], cooldownUntil = 0 } = await api.storage.local.get(['quota', 'cooldownUntil']);
   const now = Date.now();
   const d = quotaDecision(stamps, now, cooldownUntil);
   if (take && d.ok) {
     const live = [...d.live, now];
-    await chrome.storage.local.set({ quota: live });
+    await api.storage.local.set({ quota: live });
     return { ...d, remaining: QUOTA_MAX - live.length, live: undefined };
   }
   return { ...d, live: undefined };
@@ -67,11 +69,11 @@ async function quota(take) {
 // Instagram itself pushed back (HTTP 429 etc.): block further fetches for 10 minutes.
 async function penalty() {
   const until = Date.now() + 10 * 60 * 1000;
-  await chrome.storage.local.set({ cooldownUntil: until });
+  await api.storage.local.set({ cooldownUntil: until });
   return { until };
 }
 
-chrome.runtime.onMessage.addListener((msg, sender, send) => {
+api.runtime.onMessage.addListener((msg, sender, send) => {
   const reply = p => { p.then(send).catch(e => send({ error: String(e) })); return true; };
   switch (msg.type) {
     case 'ingest': ingest(msg.text, msg.vars, sender.tab && sender.tab.id); return false;
@@ -82,7 +84,7 @@ chrome.runtime.onMessage.addListener((msg, sender, send) => {
     case 'window': return reply(dbGetWindow(msg.chatId, msg.id, msg.before, msg.after));
     case 'search': return reply(dbSearch(msg.source, msg.chatId));
     case 'openViewer':
-      chrome.tabs.create({ url: chrome.runtime.getURL('viewer.html') + (msg.chatId ? '#chat=' + msg.chatId : '') });
+      api.tabs.create({ url: api.runtime.getURL('viewer.html') + (msg.chatId ? '#chat=' + msg.chatId : '') });
       return false;
   }
 });

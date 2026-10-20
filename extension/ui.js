@@ -11,9 +11,7 @@
   window.__igvUI = true;
 
   const sleep = ms => new Promise(r => setTimeout(r, ms));
-  const send = msg => new Promise(res => {
-    try { chrome.runtime.sendMessage(msg, r => res(chrome.runtime.lastError ? null : r)); } catch (e) { res(null); }
-  });
+  const send = msg => { try { return api.runtime.sendMessage(msg).then(r => r, () => null); } catch (e) { return Promise.resolve(null); } };
   const norm = s => String(s).replace(/\s+/g, ' ').trim();
   const urlId = () => (location.pathname.match(/\/direct\/t\/([^/]+)/) || [])[1] || null;
   const pad = n => String(n).padStart(2, '0');
@@ -32,7 +30,7 @@
     hits: [], cur: -1,
     results: [], total: 0, chatHits: [],
   };
-  try { chrome.storage.local.get({ showTs: true }, v => { S.showTs = v.showTs; paint(); }); } catch (e) {}
+  try { api.storage.local.get({ showTs: true }).then(v => { S.showTs = v.showTs; paint(); }).catch(() => {}); } catch (e) {}
 
   // ---------------------------------------------------------------- data
   function rebuild() {
@@ -74,7 +72,7 @@
   const matchesThis = ev => !!S.id && (ev.chatId === S.id || ev.threadId === S.id || (S.chat && ev.chatId === S.chat.id));
   const waiters = [];
 
-  chrome.runtime.onMessage.addListener(msg => { if (msg.type === 'ingested') handleIngested(msg); });
+  api.runtime.onMessage.addListener(msg => { if (msg.type === 'ingested') handleIngested(msg); });
 
   async function handleIngested(ev) {
     // The URL id may be a participant id rather than the thread id, so (re)resolve the chat.
@@ -314,7 +312,6 @@
   }
 
   // ---- search results (whole phrase, newest first) + jump to a result ------
-  const escH = x => String(x).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   let searchSeq = 0;
   async function runSearch() {
     const q = S.query, seq = ++searchSeq;
@@ -330,12 +327,14 @@
   function renderResults() {
     const box = $('res');
     box.textContent = '';
-    const re = S.query ? phraseRe(escH(S.query), 'gi') : null;
+    const re = S.query ? phraseRe(S.query, 'gi') : null;
+    const small = t => { const s = document.createElement('small'); s.textContent = t; return s; };
     // chats whose nickname / real name / @username matches the query
     for (const c of S.chatHits) {
       const d = document.createElement('div');
       d.className = 'hit';
-      d.innerHTML = `<small>chat</small>💬 ${escH(c.title)}` + (c.aliases.length ? ` <small>${escH(c.aliases.join(' · '))}</small>` : '');
+      d.append(small('chat'), `💬 ${c.title}`);
+      if (c.aliases.length) d.append(' ', small(c.aliases.join(' · ')));
       d.title = 'Open this chat';
       d.onclick = () => { if (sameChat(c.id)) return setStatus('You are already in this chat.'); location.assign('/direct/t/' + c.id + '/'); };
       box.appendChild(d);
@@ -343,12 +342,28 @@
     for (const h of S.results) {
       const d = document.createElement('div');
       d.className = 'hit';
-      d.innerHTML = `<small>${fmt(h.ts)}${h.chat ? ' · ' + escH(h.chat) : ''}${h.unsent ? ' · unsent' : ''}</small>` +
-        (re ? escH(h.text).replace(re, x => `<mark>${x}</mark>`) : escH(h.text));
+      d.append(small(`${fmt(h.ts)}${h.chat ? ' · ' + h.chat : ''}${h.unsent ? ' · unsent' : ''}`));
+      appendMarked(d, h.text, re);
       d.title = 'Show the conversation around this message';
       d.onclick = () => openContext(h);
       box.appendChild(d);
     }
+  }
+
+  // Append `text` to `parent`, wrapping every match of the global regex `re` in <mark> (text nodes only).
+  function appendMarked(parent, text, re) {
+    if (!re) { parent.append(text); return; }
+    let last = 0;
+    re.lastIndex = 0;
+    for (let m; (m = re.exec(text));) {
+      if (!m[0]) { re.lastIndex++; continue; }
+      parent.append(text.slice(last, m.index));
+      const k = document.createElement('mark');
+      k.textContent = m[0];
+      parent.append(k);
+      last = m.index + m[0].length;
+    }
+    parent.append(text.slice(last));
   }
 
   const sameChat = id => id === S.id || (S.chat && S.chat.id === id);
@@ -444,7 +459,7 @@
     if (ctx.busy || !ctx.hit) return;
     ctx.busy = true; $('ctxf').disabled = true;
     try {
-      const store = await chrome.storage.local.get('queryDocs');
+      const store = await api.storage.local.get('queryDocs');
       const docs = store.queryDocs || {};
       // 1) Make sure Instagram has made a request on this page we can model ours on.
       const probe = await pageCall({ probe: true, docs });
@@ -623,7 +638,7 @@
 
     S.hits = ranges;
     if (S.cur >= ranges.length) S.cur = ranges.length - 1;
-    if (CSS.highlights && ranges.length) {
+    if (CSS.highlights && typeof Highlight !== 'undefined' && ranges.length) {
       CSS.highlights.set('igv-hit', new Highlight(...ranges));
       if (S.cur >= 0) CSS.highlights.set('igv-cur', new Highlight(ranges[S.cur]));
     }
@@ -642,17 +657,24 @@
   }
 
   // ----------------------------------------------------------------- wiring
-  try {
-    const sheet = new CSSStyleSheet();
-    sheet.replaceSync('::highlight(igv-hit){background:#ffd54acc;color:#000}::highlight(igv-cur){background:#ff9100;color:#000}');
-    document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
-  } catch (e) {}
+  {
+    const css = '::highlight(igv-hit){background:#ffd54acc;color:#000}::highlight(igv-cur){background:#ff9100;color:#000}';
+    try {
+      const sheet = new CSSStyleSheet();
+      sheet.replaceSync(css);
+      document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
+    } catch (e) {
+      const st = document.createElement('style');
+      st.textContent = css;
+      (document.head || document.documentElement).appendChild(st);
+    }
+  }
 
   $('x').onclick = e => { e.stopPropagation(); panel.classList.add('min'); };
   panel.onclick = () => panel.classList.remove('min');
   $('go').onclick = () => { status = ''; scrollLoop(); };
   $('stop').onclick = () => { S.stop = true; };
-  $('ts').onchange = () => { S.showTs = $('ts').checked; try { chrome.storage.local.set({ showTs: S.showTs }); } catch (x) {} schedule(); };
+  $('ts').onchange = () => { S.showTs = $('ts').checked; try { api.storage.local.set({ showTs: S.showTs }).catch(() => {}); } catch (x) {} schedule(); };
   let qt = 0;
   // Read the value synchronously: inside a shadow root e.target is null once dispatch ends.
   $('q').oninput = () => {

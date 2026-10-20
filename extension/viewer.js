@@ -2,7 +2,6 @@ const $ = id => document.getElementById(id);
 let chats = [], cur = null, MSGS = [], chatById = {};
 const WINDOW = 200;
 
-const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const pad = n => String(n).padStart(2, '0');
 const fmt = ts => { const d = new Date(ts); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`; };
 const dayOf = ts => fmt(ts).slice(0, 10);
@@ -38,11 +37,21 @@ function phraseRe(q, flags) {
   return src ? new RegExp(src, flags) : null;
 }
 
-function hl(text, q) {
-  // match on the escaped text with the escaped query so the HTML stays valid
-  const re = q ? phraseRe(esc(q), 'gi') : null;
-  const h = esc(text);
-  return re ? h.replace(re, x => `<mark>${x}</mark>`) : h;
+// Append `text` to `parent`, wrapping every match of the global regex `re` in <mark>.
+// Built from text nodes, never parsed as HTML.
+function appendMarked(parent, text, re) {
+  if (!re) { parent.append(text); return; }
+  let last = 0;
+  re.lastIndex = 0;
+  for (let m; (m = re.exec(text));) {
+    if (!m[0]) { re.lastIndex++; continue; }
+    parent.append(text.slice(last, m.index));
+    const k = document.createElement('mark');
+    k.textContent = m[0];
+    parent.append(k);
+    last = m.index + m[0].length;
+  }
+  parent.append(text.slice(last));
 }
 
 async function loadChats(keepSel = true) {
@@ -53,7 +62,10 @@ async function loadChats(keepSel = true) {
   const add = (id, name, sub) => {
     const d = document.createElement('div');
     d.className = 'chat' + (cur === id ? ' sel' : '');
-    d.innerHTML = `${esc(name)}<small>${esc(sub)}</small>`;
+    d.append(name);
+    const small = document.createElement('small');
+    small.textContent = sub;
+    d.append(small);
     d.onclick = () => selectChat(id);
     el.appendChild(d);
   };
@@ -111,9 +123,19 @@ function search() {
     const m = MSGS[i];
     const d = document.createElement('div');
     d.className = 'hit';
-    const chat = cur === '*' ? ` · ${esc((chatById[m.chatId] || {}).title || m.chatId)}` : '';
-    const flags = (m.unsent ? ' <span class="tag">unsent</span>' : '') + (m.previousTexts ? ' <span class="tag">edited</span>' : '');
-    d.innerHTML = `<div class="meta">${fmt(m.ts)} · ${esc(who(m))}${chat}${flags}</div>${hl(body(m), q)}`;
+    const chat = cur === '*' ? ` · ${(chatById[m.chatId] || {}).title || m.chatId}` : '';
+    const meta = document.createElement('div');
+    meta.className = 'meta';
+    meta.append(`${fmt(m.ts)} · ${who(m)}${chat}`);
+    for (const [on, label] of [[m.unsent, 'unsent'], [m.previousTexts, 'edited']]) {
+      if (!on) continue;
+      const tag = document.createElement('span');
+      tag.className = 'tag';
+      tag.textContent = ' ' + label;
+      meta.append(tag);
+    }
+    d.append(meta);
+    appendMarked(d, body(m), phraseRe(q, 'gi'));
     d.onclick = () => (cur === '*' ? selectChatAt(m) : viewAround(i));
     list.appendChild(d);
   }
@@ -135,9 +157,19 @@ function viewAround(center) {
       if (day !== lastDay) { lastDay = day; const d = document.createElement('div'); d.className = 'day'; d.textContent = day; list.appendChild(d); }
       const r = document.createElement('div');
       r.className = 'row ' + (isMine(m) ? 'me' : 'them') + (i === center ? ' focus' : '');
-      const q = m.replyText ? `<div class="quote">${esc(m.replyText)}</div>` : '';
       const flags = (m.unsent ? ' · unsent' : '') + (m.previousTexts ? ' · edited' : '') + (m.reactions && m.reactions.length ? ` · ${m.reactions.length} reaction(s)` : '');
-      r.innerHTML = `<div class="b">${q}${esc(body(m))}</div><small>${fmt(m.ts)} · ${esc(who(m))}${flags}</small>`;
+      const b = document.createElement('div');
+      b.className = 'b';
+      if (m.replyText) {
+        const quote = document.createElement('div');
+        quote.className = 'quote';
+        quote.textContent = m.replyText;
+        b.append(quote);
+      }
+      b.append(body(m));
+      const small = document.createElement('small');
+      small.textContent = `${fmt(m.ts)} · ${who(m)}${flags}`;
+      r.append(b, small);
       list.appendChild(r);
     }
     if (hi < MSGS.length) list.appendChild(more('Load later', () => { hi = Math.min(MSGS.length, hi + WINDOW); draw(); }));
